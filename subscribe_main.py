@@ -16,7 +16,7 @@ from utilities import TgCommand
 logger = cfg_logger(logging.getLogger(__name__), logging.DEBUG)
 
 # The token you got from @botfather when you created the bot
-BOT_TOKEN_SUBSCRIBE = "1861701610:AAGwel2BZkyMGq8nWVdegMcn7tnE-qyhhiI"
+BOT_TOKEN_SUBSCRIBE = ""
 
 
 def commands() -> dict:
@@ -57,17 +57,18 @@ def lookup_lod(lod, **kw):
     return None
 
 
-def map_id_uname(lod: list, field_mapping: dict) -> list:
+def map_id_uname(data_dict: dict, field_mapping: dict) -> dict:
+    """ @:param data_dict {int: dict, int: dict, ...}"""
     map_dict = {}
-    for row in lod:
+    for row, row_data in data_dict.items():
         for k, v in field_mapping.items():
-            tg_user_id = row[k] # e.g. row[creat__tg_user_id] = 1
+            tg_user_id = row_data[k] # e.g. row[creat__tg_user_id] = 1
             if tg_user_id not in map_dict:
                 read_uname = subscribe_db.read_uname(tg_user_id)
                 map_dict.update({tg_user_id: read_uname})
             uname: str = map_dict[tg_user_id]
-            row[v] = uname
-    return lod
+            row_data[v] = uname
+    return data_dict
 
 
 def extract_bkey_arg(update: Update, context: CallbackContext, cmd: str) -> str:
@@ -86,7 +87,7 @@ def extract_bkey_arg(update: Update, context: CallbackContext, cmd: str) -> str:
 def hdl_cmd_subscribe_uname(update: Update, context: CallbackContext) -> None:
     """Set uname for user if key given. """
     logger.debug(f"Insert (/edit) bot")
-    if len(context.args) > 0:
+    if context.args is not None and len(context.args) > 0:
         bkey_ = extract_bkey_arg(update, context, "uname")
         subscribe_db.set_uname(update.effective_user.id, bkey_)
     uname = subscribe_db.read_uname(update.effective_user.id)

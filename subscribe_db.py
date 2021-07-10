@@ -70,7 +70,7 @@ def read_uname(tg_user_id: int) -> str:
 
 def id_by_uname(uname: str) -> int:
     with Engine_SUBSCRIBE.connect() as con:
-        select = con.execute("SELECT tg_user_id FROM user_settings WHERE uname:=uname", uname=uname)
+        select = con.execute("SELECT tg_user_id FROM user_settings WHERE uname=:uname", uname=uname)
         row: Tuple = select.fetchone()
         if not row:
             return 0

@@ -1,6 +1,6 @@
 from datetime import datetime
 from queue import Queue
-from typing import Optional, Union, List, Tuple
+from typing import Union, List, Tuple
 
 from telegram import Update, Bot, Message, User, Chat, ReplyMarkup, constants
 from telegram.ext import CallbackContext, Dispatcher
@@ -8,6 +8,7 @@ from telegram.utils.helpers import DEFAULT_NONE
 from telegram.utils.types import ODVInput, DVInput, JSONDict
 
 import subscribe_main
+import test_utils
 
 
 class MyMessage(Message):
@@ -24,9 +25,18 @@ class MyMessage(Message):
         #                          reply_markup, timeout, api_kwargs, allow_sending_without_reply, entities, quote)
 
 
-def test_subscribe(update: Update, context: CallbackContext):
-    context.args = ['todo']
-    subscribe_main.hdl_cmd_subscribe_subscribe(update, context)
+def test_subscribe(update: Update, ctx: CallbackContext):
+    ctx.args = ['todo']
+    subscribe_main.hdl_cmd_subscribe_subscribe(update, ctx)
+
+    print("cmd uname:")
+    ctx.args = ['uname_1']
+    subscribe_main.hdl_cmd_subscribe_uname(update, ctx)
+
+    print("cmd uname:")
+    update, ctx = test_utils.setup(subscribe_main.BOT_TOKEN_SUBSCRIBE, 2, 1, 2, 'user-2')
+    ctx.args = ['uname_2']
+    subscribe_main.hdl_cmd_subscribe_uname(update, ctx)
 
 
 def main():
