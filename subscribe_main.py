@@ -2,7 +2,7 @@
 import logging
 
 from telegram import Update
-from telegram.ext import Updater, CallbackContext, CommandHandler
+from telegram.ext import CallbackContext
 
 import subscribe_db
 import tg_db
@@ -10,24 +10,24 @@ import tg_reply
 import tgdata_main
 import utilities
 from log.g3b1_log import cfg_logger
-from tgdata_main import error_handler
+from subscribe_token import BOT_TOKEN_SUBSCRIBE
 from utilities import TgCommand
 
 logger = cfg_logger(logging.getLogger(__name__), logging.DEBUG)
-
-# The token you got from @botfather when you created the bot
-BOT_TOKEN_SUBSCRIBE = ""
 
 
 def commands() -> dict:
     return dict(edit=
                 TgCommand("edit", "subscribe_edit", hdl_cmd_subscribe_edit, hdl_cmd_subscribe_edit.__doc__, ['bkey']),
                 default=
-                TgCommand("default", "subscribe_default", hdl_cmd_subscribe_default, hdl_cmd_subscribe_default.__doc__, ['bkey']),
+                TgCommand("default", "subscribe_default", hdl_cmd_subscribe_default, hdl_cmd_subscribe_default.__doc__,
+                          ['bkey']),
                 uname=
-                TgCommand("uname", "subscribe_uname", hdl_cmd_subscribe_uname, hdl_cmd_subscribe_uname.__doc__, ['bkey']),
+                TgCommand("uname", "subscribe_uname", hdl_cmd_subscribe_uname, hdl_cmd_subscribe_uname.__doc__,
+                          ['bkey']),
                 subscribe=
-                TgCommand("subscribe", "subscribe_subscribe", hdl_cmd_subscribe_subscribe, hdl_cmd_subscribe_subscribe.__doc__, ['bkey']))
+                TgCommand("subscribe", "subscribe_subscribe", hdl_cmd_subscribe_subscribe,
+                          hdl_cmd_subscribe_subscribe.__doc__, ['bkey']))
 
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -62,7 +62,7 @@ def map_id_uname(data_dict: dict, field_mapping: dict) -> dict:
     map_dict = {}
     for row, row_data in data_dict.items():
         for k, v in field_mapping.items():
-            tg_user_id = row_data[k] # e.g. row[creat__tg_user_id] = 1
+            tg_user_id = row_data[k]  # e.g. row[creat__tg_user_id] = 1
             if tg_user_id not in map_dict:
                 read_uname = subscribe_db.read_uname(tg_user_id)
                 map_dict.update({tg_user_id: read_uname})
@@ -132,7 +132,9 @@ def hdl_cmd_subscribe_subscribe(update: Update, context: CallbackContext) -> Non
 
 def main() -> None:
     """Run the bot."""
-    tgdata_main.start_bot(BOT_TOKEN_SUBSCRIBE, commands(), start, hdl_message)
+    # str(bot_key): dict(db_row)
+
+    tgdata_main.start_bot(__file__, commands(), start, hdl_message)
 
 
 if __name__ == '__main__':

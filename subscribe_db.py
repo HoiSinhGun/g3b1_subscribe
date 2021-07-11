@@ -22,9 +22,22 @@ MetaData_SUBSCRIBE.reflect(bind=Engine_SUBSCRIBE)
 logger = cfg_logger(logging.getLogger(__name__), logging.DEBUG)
 
 
+def bot_all() -> dict:
+    bot_dict = {}
+    with Engine_SUBSCRIBE.connect() as con:
+        rs = con.execute(bot_table().select())
+        for row in rs:
+            d = dict(row)
+            bot_dict.update({row['bkey']: d})
+    return bot_dict
+
+
+def bot_table() -> Table:
+    return MetaData_SUBSCRIBE.tables["bot"]
+
+
 def sql_bot_by_bkey(bkey: str) -> str:
-    bot_table: Table = MetaData_SUBSCRIBE.tables["bot"]
-    return f'SELECT ROWID FROM {bot_table.name} WHERE bkey = "{bkey}"'
+    return f'SELECT ROWID FROM {bot_table().name} WHERE bkey = "{bkey}"'
 
 
 def bot_id_by_key(bkey: str, con_input: MockConnection = None) -> int:
@@ -46,7 +59,7 @@ def bot_id_by_key(bkey: str, con_input: MockConnection = None) -> int:
 def set_uname(tg_user_id: int, uname: str) -> int:
     with Engine_SUBSCRIBE.connect() as con:
         result = con.execute("UPDATE user_settings SET uname=:uname WHERE tg_user_id=:tg_user_id", uname=uname,
-                              tg_user_id=tg_user_id)
+                             tg_user_id=tg_user_id)
         if result.rowcount:
             return 0
 
@@ -91,7 +104,8 @@ def bot_default(tg_user_id: int, tg_chat_id: int, bkey: str):
             # Try update
             result = con.execute(""
                                  "UPDATE user_chat_settings SET bot_id=:bot_id WHERE "
-                                 "tg_user_id=:tg_user_id AND tg_chat_id=:tg_chat_id", bot_id=bot_id, tg_chat_id=tg_chat_id,
+                                 "tg_user_id=:tg_user_id AND tg_chat_id=:tg_chat_id", bot_id=bot_id,
+                                 tg_chat_id=tg_chat_id,
                                  tg_user_id=tg_user_id)
             if result.rowcount:
                 return 0
