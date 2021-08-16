@@ -1,0 +1,4 @@
+python-telegram-bot~=13.6
+setuptools~=57.0.0
+SQLAlchemy~=1.4.19
+click~=8.0.1
