@@ -1,16 +1,11 @@
-import logging
 from typing import Tuple
 
-from sqlalchemy import MetaData, create_engine
-from sqlalchemy import Table
-from sqlalchemy.dialects.sqlite import insert
-from sqlalchemy.engine.mock import MockConnection
+from sqlalchemy.engine import Engine
 from telegram import Message, Chat, User  # noqa
 
-from g3b1_data import tg_db
-from g3b1_log.g3b1_log import cfg_logger
 # create console handler and set level to debug
-from g3b1_data.tg_db import externalize_chat_id, externalize_user_id
+from g3b1_data.tg_db import *
+from g3b1_log.g3b1_log import cfg_logger
 
 BOT_BKEY_SUBSCRIBE = "subscribe"
 BOT_BKEY_SUBSCRIBE_LC = BOT_BKEY_SUBSCRIBE.lower()
@@ -77,6 +72,7 @@ def read_uname(tg_user_id: int) -> str:
         select = con.execute("SELECT uname FROM user_settings WHERE tg_user_id=:tg_user_id", tg_user_id=tg_user_id)
         row: Tuple = select.fetchone()
         if not row:
+            # noinspection PyTypeChecker
             return None
         uname: str = row[0]
         return uname
@@ -144,13 +140,23 @@ def for_user(user_id: int):
     externalize_user_id(BOT_BKEY_SUBSCRIBE_LC, user_id)
 
 
+def sel_user_by_chat(chat_id: int, engine: Engine) -> list[int]:
+    with engine.connect() as con:
+        tbl: Table = MetaData_SUBSCRIBE.tables['user_chat_settings']
+        col_sel: Select = select(tbl.c.tg_user_id)
+        col_sel = col_sel.where(tbl.c.tg_chat_id == chat_id)
+        rs: Result = con.execute(col_sel)
+        rows = rs.fetchall()
+        return [row['tg_user_id'] for row in rows]
+
+
 def bot_activate(chat_id: int, user_id: int, bkey: str):
     """Activate bot for the user and the chat."""
     logger.debug(f"Subscribing user to bot {bkey}")
     if bkey not in bot_all().keys():
         logger.warning(f'Bot with bkey "{bkey}" not found!')
-    tg_db.externalize_chat_id(bkey, chat_id)
-    tg_db.externalize_user_id(bkey, user_id)
+    externalize_chat_id(bkey, chat_id)
+    externalize_user_id(bkey, user_id)
     with Engine_SUBSCRIBE.connect() as con:
         table: Table = MetaData_SUBSCRIBE.tables["user_chat_bot_subscription"]
         insert_stmnt = f'INSERT OR IGNORE INTO {table.name} VALUES ({user_id}, {chat_id},' \

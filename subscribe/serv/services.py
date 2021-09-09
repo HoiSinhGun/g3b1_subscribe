@@ -1,9 +1,12 @@
+from collections import Callable
+
 from sqlalchemy import MetaData
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.mock import MockConnection
 from telegram import Update
 from telegram.ext import CallbackContext
 
+from data import Engine_TRANS
 from g3b1_data import db as g3_db
 from g3b1_serv import utilities
 from g3b1_serv.utilities import TgColumn, TableDef
@@ -37,22 +40,28 @@ def extract_bkey_arg(update: Update, context: CallbackContext, cmd: str) -> str:
     )
 
 
-def list_chat_user(engine: Engine) -> dict[int, dict[str, ...]]:
-    mdata = MetaData()
-    mdata.reflect(bind=engine)
-    con: MockConnection
+def list_chat_user(chat_id: int, engine) -> dict[int, dict[..., ...]]:
+    # mdata = MetaData()
+    # mdata.reflect(bind=engine)
+    # con: MockConnection
     user_dct = {}
-    with engine.connect() as con:
-        id_li = g3_db.all_tg_user(con, mdata)
+    # with engine.connect() as con:
+    #     id_li = g3_db.all_tg_user(con, mdata)
+    id_li = db.sel_user_by_chat(chat_id, engine)
     for id_ in id_li:
         user_dct.update({id_: {'id': id_, 'uname': db.read_uname(id_)}})
     return user_dct
 
 
-def tbl_chat_user_send(upd: Update, engine: Engine):
-    user_dct = list_chat_user(engine)
-    tg_tbl = utilities.dc_dic_to_table(user_dct, TableDef(
-        dict(id=TgColumn('id', -1, 'id', 15), uname=TgColumn('uname', -1, 'uname', 25))))
+def tbl_chat_user_send(upd: Update, chat_id: int, engine: Engine, enrich_dct: Callable = None):
+    user_dct = list_chat_user(chat_id, engine)
+    col_li = [TgColumn('id', -1, 'id', 15), TgColumn('uname', -1, 'uname', 25)]
+    if enrich_dct:
+        user_dct = enrich_dct(upd, user_dct)
+        for k in [x for x in list(user_dct.values())[0].keys() if x != 'id' and x != 'uname']:
+            col_li.append(TgColumn(k.id_, -1, k.descr, 10))
+    table_def = TableDef(col_li)
+    tg_tbl = utilities.dc_dic_to_table(user_dct, table_def)
     reply_str = utilities.table_print(tg_tbl)
     upd.effective_message.reply_html(
         f'<code>{reply_str}</code>'
