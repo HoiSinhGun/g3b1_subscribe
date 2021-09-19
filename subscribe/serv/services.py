@@ -1,13 +1,9 @@
 from collections import Callable
 
-from sqlalchemy import MetaData
 from sqlalchemy.engine import Engine
-from sqlalchemy.engine.mock import MockConnection
 from telegram import Update
 from telegram.ext import CallbackContext
 
-from data import Engine_TRANS
-from g3b1_data import db as g3_db
 from g3b1_serv import utilities
 from g3b1_serv.utilities import TgColumn, TableDef
 from subscribe.data import db
@@ -61,8 +57,8 @@ def tbl_chat_user_send(upd: Update, chat_id: int, engine: Engine, enrich_dct: Ca
         for k in [x for x in list(user_dct.values())[0].keys() if x != 'id' and x != 'uname']:
             col_li.append(TgColumn(k.id_, -1, k.descr, 10))
     table_def = TableDef(col_li)
-    tg_tbl = utilities.dc_dic_to_table(user_dct, table_def)
-    reply_str = utilities.table_print(tg_tbl)
+    tg_tbl = utilities.dc_dic_2_tbl(user_dct, table_def)
+    reply_str = utilities.tbl_2_str(tg_tbl)
     upd.effective_message.reply_html(
         f'<code>{reply_str}</code>'
     )

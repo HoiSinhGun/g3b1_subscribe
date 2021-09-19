@@ -1,7 +1,7 @@
 import logging
 
 import subscribe
-from g3b1_log.g3b1_log import cfg_logger
+from g3b1_log.log import cfg_logger
 from g3b1_serv import tgdata_main
 from subscribe import tg_hdl
 

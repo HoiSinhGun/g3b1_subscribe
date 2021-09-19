@@ -5,7 +5,7 @@ from telegram import Message, Chat, User  # noqa
 
 # create console handler and set level to debug
 from g3b1_data.tg_db import *
-from g3b1_log.g3b1_log import cfg_logger
+from g3b1_log.log import cfg_logger
 
 BOT_BKEY_SUBSCRIBE = "subscribe"
 BOT_BKEY_SUBSCRIBE_LC = BOT_BKEY_SUBSCRIBE.lower()
