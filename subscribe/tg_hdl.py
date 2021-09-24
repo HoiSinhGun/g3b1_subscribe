@@ -3,11 +3,12 @@
 from telegram import Update, Message
 
 from g3b1_serv import tg_reply, tgdata_main
+from serv.services import bot_activate
 from subscribe import logger
 from subscribe.data import db
 
 
-@tgdata_main.tg_handler()
+@generic_hdl.tg_handler()
 def cmd_uname(upd: Update, replyToMsg: Message, user_id, uname: str = None) -> None:
     """Set uname with a length of 5 or greater for the user if the key given.
     Reply with the uname of the user
@@ -32,7 +33,7 @@ def cmd_uname(upd: Update, replyToMsg: Message, user_id, uname: str = None) -> N
     )
 
 
-@tgdata_main.tg_handler()
+@generic_hdl.tg_handler()
 def cmd_edit(upd: Update, bkey: str = None) -> None:
     """Insert or save a bot.
     """
@@ -42,7 +43,7 @@ def cmd_edit(upd: Update, bkey: str = None) -> None:
         tg_reply.cmd_success(upd)
 
 
-@tgdata_main.tg_handler()
+@generic_hdl.tg_handler()
 def cmd_default(upd: Update, bkey: str = None) -> None:
     """Set the default bot for the user.
     """
@@ -52,8 +53,8 @@ def cmd_default(upd: Update, bkey: str = None) -> None:
         tg_reply.cmd_success(upd)
 
 
-@tgdata_main.tg_handler()
-def cmd_subscribe(upd: Update, chat_id: int, user_id: int, bkey: str = None) -> None:
+@generic_hdl.tg_handler()
+def cmd_subscribe(upd: Update, bkey: str = None) -> None:
     """Subscribe to a bot %bkey% with current user and chat."""
     logger.debug(f"Subscribe to a bot")
 
@@ -63,5 +64,5 @@ def cmd_subscribe(upd: Update, chat_id: int, user_id: int, bkey: str = None) -> 
     db.for_user(user_id)
 
     if bkey:
-        db.bot_activate(chat_id, user_id, bkey)
+        bot_activate(bkey)
         tg_reply.cmd_success(upd)

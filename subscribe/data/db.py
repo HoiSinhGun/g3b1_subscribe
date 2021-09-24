@@ -1,9 +1,10 @@
 from typing import Tuple
 
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, CursorResult
 from telegram import Message, Chat, User  # noqa
 
 # create console handler and set level to debug
+from g3b1_data import settings
 from g3b1_data.tg_db import *
 from g3b1_log.log import cfg_logger
 
@@ -32,24 +33,21 @@ def bot_table() -> Table:
     return MetaData_SUBSCRIBE.tables["bot"]
 
 
-def sql_bot_by_bkey(bkey: str) -> str:
-    return f'SELECT ROWID FROM {bot_table().name} WHERE bkey = "{bkey}"'
-
-
-def bot_id_by_key(bkey: str, con_input: MockConnection = None) -> int:
-    def do_it(con: MockConnection) -> int:
-        select = con.execute(sql_bot_by_bkey(bkey))
-        row: Tuple = select.fetchone()
+def sel_bot_bkey(bkey: str, con: Connection = None) -> Optional[int]:
+    def wrapped(con_: Connection) -> Optional[int]:
+        stmnt = select(bot_table()).where(bot_table().c.bkey == bkey)
+        rs = con_.execute(stmnt)
+        row: Tuple = rs.fetchone()
         if not row:
-            return -1
+            return
         bot_id: int = int(row[0])
         return bot_id
 
-    if con_input:
-        return do_it(con_input)
+    if con:
+        return wrapped(con)
     else:
         with Engine_SUBSCRIBE.connect() as con_new:
-            return do_it(con_new)
+            return wrapped(con_new)
 
 
 def set_uname(tg_user_id: int, uname: str) -> int:
@@ -79,9 +77,11 @@ def read_uname(tg_user_id: int) -> str:
 
 
 def id_by_uname(uname: str) -> int:
+    if len(uname) < 5:
+        uname = f'g3b1_{uname}'
     with Engine_SUBSCRIBE.connect() as con:
-        select = con.execute("SELECT tg_user_id FROM user_settings WHERE uname=:uname", uname=uname)
-        row: Tuple = select.fetchone()
+        stmnt = con.execute("SELECT tg_user_id FROM user_settings WHERE uname=:uname", uname=uname)
+        row: Tuple = stmnt.fetchone()
         if not row:
             return 0
         tg_user_id: int = row[0]
@@ -94,8 +94,8 @@ def bot_default(tg_chat_id: int, tg_user_id: int, bkey: str):
     def do_it() -> int:
         with Engine_SUBSCRIBE.connect() as con:
             table: Table = MetaData_SUBSCRIBE.tables["user_chat_settings"]
-            bot_id: int = bot_id_by_key(bkey, con)
-            if bot_id < 1:
+            bot_id: int = sel_bot_bkey(bkey, con)
+            if not bot_id:
                 return -1
 
             # Try update
@@ -140,9 +140,9 @@ def for_user(user_id: int):
     externalize_user_id(BOT_BKEY_SUBSCRIBE_LC, user_id)
 
 
-def sel_user_by_chat(chat_id: int, engine: Engine) -> list[int]:
+def sel_user_by_chat(chat_id: int, engine: Engine, meta: MetaData) -> list[int]:
     with engine.connect() as con:
-        tbl: Table = MetaData_SUBSCRIBE.tables['user_chat_settings']
+        tbl: Table = meta.tables['user_chat_settings']
         col_sel: Select = select(tbl.c.tg_user_id)
         col_sel = col_sel.where(tbl.c.tg_chat_id == chat_id)
         rs: Result = con.execute(col_sel)
@@ -150,40 +150,58 @@ def sel_user_by_chat(chat_id: int, engine: Engine) -> list[int]:
         return [row['tg_user_id'] for row in rows]
 
 
-def bot_activate(chat_id: int, user_id: int, bkey: str):
+def ins_bot_uc_subscription(chat_id: int, user_id: int, bkey: str):
     """Activate bot for the user and the chat."""
     logger.debug(f"Subscribing user to bot {bkey}")
     if bkey not in bot_all().keys():
-        logger.warning(f'Bot with bkey "{bkey}" not found!')
-    externalize_chat_id(bkey, chat_id)
-    externalize_user_id(bkey, user_id)
+        logger.error(f'Bot with bkey "{bkey}" not found!')
+        return
+    externalize_chat_id('subscribe', chat_id)
+    externalize_user_id('subscribe', user_id)
     with Engine_SUBSCRIBE.connect() as con:
         table: Table = MetaData_SUBSCRIBE.tables["user_chat_bot_subscription"]
         insert_stmnt = f'INSERT OR IGNORE INTO {table.name} VALUES ({user_id}, {chat_id},' \
-                       f'(' + sql_bot_by_bkey(bkey) + ')' \
-                                                      f' ) '
+                       f'{sel_bot_bkey(bkey, con)}' \
+                       f' ) '
         logger.debug(f"Insert statement: {insert_stmnt}")
         con.execute(insert_stmnt)
 
 
+def iup_uc_setngs(chat_id: int, user_id: int, values: dict):
+    with Engine_SUBSCRIBE.begin() as con:
+        tbl: Table = MetaData_SUBSCRIBE.tables['user_chat_settings']
+        values['tg_user_id'] = user_id
+        values['tg_chat_id'] = chat_id
+        stmnt: insert = insert(tbl).values(values).on_conflict_do_update(
+            index_elements=['tg_user_id', 'tg_chat_id'],
+            set_=values
+        )
+        logger.debug(f"Insert statement: {stmnt}")
+        con.execute(stmnt)
+
+
+def sel_uc_setngs(chat_id: int, user_id: int) -> Row:
+    with Engine_SUBSCRIBE.begin() as con:
+        tbl: Table = MetaData_SUBSCRIBE.tables['user_chat_settings']
+        stmnt = (select(tbl).where(tbl.c.tg_user_id == user_id, tbl.c.tg_chat_id == chat_id))
+        rs: CursorResult = con.execute(stmnt)
+        return rs.fetchone()
+
+
+def iup_setting(setng_dct: dict[str, ...]) -> G3Result:
+    with Engine_SUBSCRIBE.connect() as con:
+        settings.iup_setting(con, MetaData_SUBSCRIBE, setng_dct)
+        return G3Result()
+
+
+def read_setting(setng_dct: dict[str, ...]) -> G3Result:
+    with Engine_SUBSCRIBE.connect() as con:
+        g3r = settings.read_setting(con, MetaData_SUBSCRIBE, setng_dct)
+        return g3r
+
+
 def main():
-    logger.debug("Running subscribe_db __main__")
-    print("Add user")
-    for_user(1)
-    set_uname(1, "uname 1")
-    for_user(2)
-    set_uname(2, "uname 2")
-    print("Add chat")
-    for_chat(1)
-    print("Save todo bot")
-    bot_save('todo')
-    print("Activate")
-    bot_activate(1, 1, 'todo')
-    bot_activate(1, 2, 'todo')
-    print("Set default bot:")
-    bot_default(1, 1, 'todo')
-    default = bot_default(1, 2, 'todo')
-    print(f"Default RC: {default}")
+    pass
 
 
 if __name__ == '__main__':
