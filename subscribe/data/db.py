@@ -12,16 +12,16 @@ BOT_BKEY_SUBSCRIBE = "subscribe"
 BOT_BKEY_SUBSCRIBE_LC = BOT_BKEY_SUBSCRIBE.lower()
 
 DB_FILE_SUBSCRIBE = rf'C:\Users\IFLRGU\Documents\dev\g3b1_{BOT_BKEY_SUBSCRIBE_LC}.db'
-MetaData_SUBSCRIBE = MetaData()
-Engine_SUBSCRIBE = create_engine(f"sqlite:///{DB_FILE_SUBSCRIBE}")
-MetaData_SUBSCRIBE.reflect(bind=Engine_SUBSCRIBE)
+md_SUB = MetaData()
+eng_SUB = create_engine(f"sqlite:///{DB_FILE_SUBSCRIBE}")
+md_SUB.reflect(bind=eng_SUB)
 
 logger = cfg_logger(logging.getLogger(__name__), logging.DEBUG)
 
 
 def bot_all() -> dict[str, dict]:
     bot_dict = {}
-    with Engine_SUBSCRIBE.connect() as con:
+    with eng_SUB.connect() as con:
         rs = con.execute(bot_table().select())
         for row in rs:
             d = dict(row)
@@ -30,14 +30,14 @@ def bot_all() -> dict[str, dict]:
 
 
 def bot_table() -> Table:
-    return MetaData_SUBSCRIBE.tables["bot"]
+    return md_SUB.tables["bot"]
 
 
 def sel_bot_bkey(bkey: str, con: Connection = None) -> Optional[int]:
     def wrapped(con_: Connection) -> Optional[int]:
         stmnt = select(bot_table()).where(bot_table().c.bkey == bkey)
         rs = con_.execute(stmnt)
-        row: Tuple = rs.fetchone()
+        row: Tuple = rs.first()
         if not row:
             return
         bot_id: int = int(row[0])
@@ -46,18 +46,18 @@ def sel_bot_bkey(bkey: str, con: Connection = None) -> Optional[int]:
     if con:
         return wrapped(con)
     else:
-        with Engine_SUBSCRIBE.connect() as con_new:
+        with eng_SUB.connect() as con_new:
             return wrapped(con_new)
 
 
 def set_uname(tg_user_id: int, uname: str) -> int:
-    with Engine_SUBSCRIBE.connect() as con:
+    with eng_SUB.connect() as con:
         result = con.execute("UPDATE user_settings SET uname=:uname WHERE tg_user_id=:tg_user_id", uname=uname,
                              tg_user_id=tg_user_id)
         if result.rowcount:
             return 0
 
-        table: Table = MetaData_SUBSCRIBE.tables["user_settings"]
+        table: Table = md_SUB.tables["user_settings"]
         values = dict(tg_user_id=tg_user_id, uname=uname)
         insert_stmnt: insert = insert(table).values(values)
         logger.debug(f"Insert statement: {insert_stmnt}")
@@ -66,9 +66,9 @@ def set_uname(tg_user_id: int, uname: str) -> int:
 
 
 def read_uname(tg_user_id: int) -> str:
-    with Engine_SUBSCRIBE.connect() as con:
+    with eng_SUB.connect() as con:
         select = con.execute("SELECT uname FROM user_settings WHERE tg_user_id=:tg_user_id", tg_user_id=tg_user_id)
-        row: Tuple = select.fetchone()
+        row: Tuple = select.first()
         if not row:
             # noinspection PyTypeChecker
             return None
@@ -77,11 +77,11 @@ def read_uname(tg_user_id: int) -> str:
 
 
 def id_by_uname(uname: str) -> int:
-    if len(uname) < 5:
+    if len(uname) < 6:
         uname = f'g3b1_{uname}'
-    with Engine_SUBSCRIBE.connect() as con:
+    with eng_SUB.connect() as con:
         stmnt = con.execute("SELECT tg_user_id FROM user_settings WHERE uname=:uname", uname=uname)
-        row: Tuple = stmnt.fetchone()
+        row: Tuple = stmnt.first()
         if not row:
             return 0
         tg_user_id: int = row[0]
@@ -92,8 +92,8 @@ def bot_default(tg_chat_id: int, tg_user_id: int, bkey: str):
     logger.debug(f"Save or update setting: user-chat bot default to {bkey}")
 
     def do_it() -> int:
-        with Engine_SUBSCRIBE.connect() as con:
-            table: Table = MetaData_SUBSCRIBE.tables["user_chat_settings"]
+        with eng_SUB.connect() as con:
+            table: Table = md_SUB.tables["user_chat_settings"]
             bot_id: int = sel_bot_bkey(bkey, con)
             if not bot_id:
                 return -1
@@ -120,8 +120,8 @@ def bot_default(tg_chat_id: int, tg_user_id: int, bkey: str):
 def bot_save(bkey):
     """Save or update bot for %bkey%."""
     logger.debug(f"Saving bot {bkey}")
-    with Engine_SUBSCRIBE.connect() as con:
-        table: Table = MetaData_SUBSCRIBE.tables["bot"]
+    with eng_SUB.connect() as con:
+        table: Table = md_SUB.tables["bot"]
         logger.debug(f"Use Table: {table}")
         values = dict(bkey=bkey)
         insert_stmnt: insert = insert(table).values(values).on_conflict_do_update(
@@ -158,8 +158,8 @@ def ins_bot_uc_subscription(chat_id: int, user_id: int, bkey: str):
         return
     externalize_chat_id('subscribe', chat_id)
     externalize_user_id('subscribe', user_id)
-    with Engine_SUBSCRIBE.connect() as con:
-        table: Table = MetaData_SUBSCRIBE.tables["user_chat_bot_subscription"]
+    with eng_SUB.connect() as con:
+        table: Table = md_SUB.tables["user_chat_bot_subscription"]
         insert_stmnt = f'INSERT OR IGNORE INTO {table.name} VALUES ({user_id}, {chat_id},' \
                        f'{sel_bot_bkey(bkey, con)}' \
                        f' ) '
@@ -168,8 +168,8 @@ def ins_bot_uc_subscription(chat_id: int, user_id: int, bkey: str):
 
 
 def iup_uc_setngs(chat_id: int, user_id: int, values: dict):
-    with Engine_SUBSCRIBE.begin() as con:
-        tbl: Table = MetaData_SUBSCRIBE.tables['user_chat_settings']
+    with eng_SUB.begin() as con:
+        tbl: Table = md_SUB.tables['user_chat_settings']
         values['tg_user_id'] = user_id
         values['tg_chat_id'] = chat_id
         stmnt: insert = insert(tbl).values(values).on_conflict_do_update(
@@ -181,22 +181,22 @@ def iup_uc_setngs(chat_id: int, user_id: int, values: dict):
 
 
 def sel_uc_setngs(chat_id: int, user_id: int) -> Row:
-    with Engine_SUBSCRIBE.begin() as con:
-        tbl: Table = MetaData_SUBSCRIBE.tables['user_chat_settings']
+    with eng_SUB.begin() as con:
+        tbl: Table = md_SUB.tables['user_chat_settings']
         stmnt = (select(tbl).where(tbl.c.tg_user_id == user_id, tbl.c.tg_chat_id == chat_id))
         rs: CursorResult = con.execute(stmnt)
-        return rs.fetchone()
+        return rs.first()
 
 
 def iup_setting(setng_dct: dict[str, ...]) -> G3Result:
-    with Engine_SUBSCRIBE.connect() as con:
-        settings.iup_setting(con, MetaData_SUBSCRIBE, setng_dct)
+    with eng_SUB.connect() as con:
+        settings.iup_setting(con, md_SUB, setng_dct)
         return G3Result()
 
 
 def read_setting(setng_dct: dict[str, ...]) -> G3Result:
-    with Engine_SUBSCRIBE.connect() as con:
-        g3r = settings.read_setting(con, MetaData_SUBSCRIBE, setng_dct)
+    with eng_SUB.connect() as con:
+        g3r = settings.read_setting(con, md_SUB, setng_dct)
         return g3r
 
 

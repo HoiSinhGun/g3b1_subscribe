@@ -67,6 +67,10 @@ def tbl_chat_user_send(upd: Update, chat_id: int, engine: Engine, meta: MetaData
     )
 
 
+def id_by_uname(uname: str) -> int:
+    return db.id_by_uname(uname)
+
+
 def for_user(for_uname, user_id):
     if for_uname:
         for_user_id = db.id_by_uname(for_uname)
@@ -77,7 +81,7 @@ def for_user(for_uname, user_id):
 
 def sel_setng_cmd_default(uname: str = '', f_shorten=False) -> str:
     """Select cmd_prefix. Consistency check related to bot_id"""
-    chat_id, user_id = utilities.upd_extract_chat_user_id(G3Context.upd)
+    chat_id, user_id = utilities.upd_extract_chat_user_id()
     for_user_id = for_user(uname, user_id)
     row: Row = db.sel_uc_setngs(chat_id, for_user_id)
     cmd_default = str(row['cmd_default'])
@@ -88,7 +92,7 @@ def sel_setng_cmd_default(uname: str = '', f_shorten=False) -> str:
 
 def sel_setng_cmd_prefix(uname: str = '') -> str:
     """Select cmd_prefix. Consistency check related to bot_id"""
-    chat_id, user_id = utilities.upd_extract_chat_user_id(G3Context.upd)
+    chat_id, user_id = utilities.upd_extract_chat_user_id()
     for_user_id = for_user(uname, user_id)
     row: Row = db.sel_uc_setngs(chat_id, for_user_id)
     cmd_prefix = str(row['cmd_prefix'])
@@ -100,7 +104,7 @@ def sel_setng_cmd_prefix(uname: str = '') -> str:
 
 def iup_setng_cmd_prefix(cmd_prefix: str = '', uname: str = '', g3_m_str=''):
     """Set the cmd_prefix which replaces triple dot."""
-    chat_id, user_id = utilities.upd_extract_chat_user_id(G3Context.upd)
+    chat_id, user_id = utilities.upd_extract_chat_user_id()
     for_user_id = for_user(uname, user_id)
 
     if not g3_m_str:
@@ -114,10 +118,10 @@ def iup_setng_cmd_prefix(cmd_prefix: str = '', uname: str = '', g3_m_str=''):
 
 def iup_setng_cmd_default(g3_cmd: G3Command = None, uname: str = ''):
     """Set the cmd_default"""
-    chat_id, user_id = utilities.upd_extract_chat_user_id(G3Context.upd)
+    chat_id, user_id = utilities.upd_extract_chat_user_id()
     for_user_id = for_user(uname, user_id)
 
-    chat_id, user_id = upd_extract_chat_user_id(G3Context.upd)
+    chat_id, user_id = upd_extract_chat_user_id()
     if g3_cmd:
         g3m_str = g3_cmd.g3_m.name
         cmd_default = g3_cmd.long_name
@@ -129,6 +133,6 @@ def iup_setng_cmd_default(g3_cmd: G3Command = None, uname: str = ''):
 
 
 def bot_activate(g3_m_str: str, uname: str = ''):
-    chat_id, user_id = utilities.upd_extract_chat_user_id(G3Context.upd)
+    chat_id, user_id = utilities.upd_extract_chat_user_id()
     for_user_id = for_user(uname, user_id)
     db.ins_bot_uc_subscription(chat_id, for_user_id, g3_m_str)
