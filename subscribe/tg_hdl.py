@@ -2,19 +2,20 @@
 
 from telegram import Update, Message
 
-from g3b1_serv import tg_reply, tgdata_main
+import generic_hdl
+from g3b1_serv import tg_reply
 from serv.services import bot_activate
 from subscribe import logger
 from subscribe.data import db
 
 
 @generic_hdl.tg_handler()
-def cmd_uname(upd: Update, replyToMsg: Message, user_id, uname: str = None) -> None:
+def cmd_uname(upd: Update, reply_to_msg: Message, user_id, uname: str = None) -> None:
     """Set uname with a length of 5 or greater for the user if the key given.
     Reply with the uname of the user
     """
-    if replyToMsg:
-        for_user_id = replyToMsg.from_user.id
+    if reply_to_msg:
+        for_user_id = reply_to_msg.from_user.id
     else:
         for_user_id = user_id
     if uname:
