@@ -7,13 +7,36 @@ from telegram import Message, Chat, User  # noqa
 from subscribe.data import eng_SUB, md_SUB
 from subscribe.data.integrity import from_row_any
 from subscribe.data.model import Setng, BCU, SetngItKeyVal, ENT_TY_setng, ENT_TY_setng_it_key_val, SetngItKey, \
-    ELE_TY_setng_it_key_id, ELE_TY_bcu_id
+    ELE_TY_setng_it_key_id, ELE_TY_bcu_id, Ctx
 from g3b1_data.entities import G3_M_SUBSCRIBE
 from g3b1_data import settings
 from g3b1_data.tg_db import *
 from g3b1_log.log import cfg_logger
 
 logger = cfg_logger(logging.getLogger(__name__), logging.WARN)
+
+
+def externalize_message(chat_id: int, ext_id: int) -> int:
+    with eng_SUB.begin() as con:
+        tbl: Table = md_SUB.tables['ext_tg_message']
+        stmnt = insert(tbl).values({"chat_id": chat_id, "ext_id": ext_id})
+        rs: CursorResult = con.execute(stmnt)
+        return fetch_id(con, rs, tbl.name)
+
+
+def fin_ctx_active(chat_id: int) -> list[Ctx]:
+    tbl: Table = md_SUB.tables['ctx']
+    # noinspection PyComparisonWithNone
+    stmnt = select(tbl).where(tbl.c.chat_id == chat_id, tbl.c.stop_tst == None)
+    rs: CursorResult = eng_SUB.execute(stmnt)
+    ctx_li: list[Ctx] = []
+    for row in rs.fetchall():
+        ctx_li.append(Ctx(row, {}))
+
+
+def upd_ctx_add_msg(ctx_id: int, msg_id: int):
+    tbl: Table = md_SUB.tables['ctx_msg']
+    eng_SUB.execute(insert(tbl).values({"ctx_id": ctx_id, "ext_msg_id": msg_id}))
 
 
 def bot_all() -> dict[str, dict]:

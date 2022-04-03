@@ -4,8 +4,9 @@ from sqlalchemy import Table
 from sqlalchemy.engine import Row, Connection
 
 import integrity
-from subscribe.data.model import ENT_TY_setng, Setng, G3Bot, ENT_TY_g3_bot, ENT_TY_setng_it, SetngIt, ENT_TY_setng_it_key, \
-    SetngItKey, ENT_TY_setng_it_key_val, SetngItKeyVal
+from subscribe.data.model import ENT_TY_setng, Setng, G3Bot, ENT_TY_g3_bot, ENT_TY_setng_it, SetngIt, \
+    ENT_TY_setng_it_key, \
+    SetngItKey, ENT_TY_setng_it_key_val, SetngItKeyVal, G3File, ENT_TY_g3_file, ENT_TY_ctx, Ctx
 from g3b1_data.entities import EntTy, ET
 
 
@@ -13,8 +14,12 @@ def from_row_g3_bot(row: Row) -> G3Bot:
     return G3Bot(row['bkey'], row['id'])
 
 
+def from_row_g3_file(row: Row) -> G3File:
+    return G3File(row=row)
+
+
 def from_row_setng(row: Row, repl_dct: dict) -> Setng:
-    return Setng(repl_dct.get('g3_bot_id', row['g3_bot_id']), row['bkey'], row['id'])
+    return Setng(row=row, repl_dct=repl_dct)
 
 
 def from_row_setng_it(row: Row, repl_dct: dict) -> SetngIt:
@@ -48,7 +53,9 @@ def from_row_any(ent_ty: EntTy[ET], row: Row, repl_dct: dict) -> ET:
         return from_row_setng_it_key_val(row, repl_dct)
     elif ent_ty == ENT_TY_g3_bot:
         return from_row_g3_bot(row)
-    # elif ent_ty == ENT_TY_bcu:
-    #     return from_row_tst_run_act(row)
+    elif ent_ty == ENT_TY_g3_file:
+        return from_row_g3_file(row)
+    elif ent_ty == ENT_TY_ctx:
+        return Ctx(row, repl_dct)
 
     return row['id']
